@@ -1,0 +1,17 @@
+services:
+  price-tracker-bot:
+    build: .
+    container_name: price-tracker-bot
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      # Persistent storage for SQLite database (survives container restarts & rebuilds)
+      - ./data:/app/data
+    environment:
+      - DB_URL=sqlite+aiosqlite:////app/data/bot.db
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

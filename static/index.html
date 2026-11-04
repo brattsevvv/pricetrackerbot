@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Price Tracker FI — Поиск лучших цен в Финляндии</title>
+  
+  <!-- PWA Meta -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0ea5e9">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PriceTracker">
+  <link rel="apple-touch-icon" href="/static/icon-192.png">
+  <link rel="icon" type="image/png" href="/static/icon-192.png">
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom scrollbar and smooth transitions */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    
+    .glass {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .badge-best {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+    }
+    
+    /* Touch optimization for mobile */
+    button, input, select {
+      touch-action: manipulation;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col antialiased selection:bg-sky-500 selection:text-white">
+
+  <!-- Sticky Top Navigation -->
+  <header class="sticky top-0 z-50 glass border-b border-slate-800">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('search')">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-amber-400 flex items-center justify-center shadow-lg shadow-sky-500/20">
+          <span class="text-xl">⚡</span>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-1.5">
+            Price Tracker <span class="text-xs bg-sky-500/20 text-sky-400 font-semibold px-2 py-0.5 rounded-full border border-sky-500/30">FI</span>
+          </h1>
+          <p class="text-[11px] text-slate-400 hidden sm:block">Tokmanni • Kärkkäinen • Fitnesstukku • Hinta.fi</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs & Actions -->
+      <div class="flex items-center space-x-2">
+        <button id="tab-btn-search" onclick="switchTab('search')" class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition bg-sky-600 text-white flex items-center gap-1.5">
+          <span>🔍</span> <span class="hidden sm:inline">Поиск</span>
+        </button>
+        <button id="tab-btn-tracked" onclick="switchTab('tracked')" class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition text-slate-300 hover:bg-slate-800 flex items-center gap-1.5 relative">
+          <span>⭐</span> <span class="hidden sm:inline">Отслеживаемые</span>
+          <span id="tracked-badge" class="hidden absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-slate-950 font-bold text-[10px] rounded-full items-center justify-center">0</span>
+        </button>
+        
+        <!-- PWA Install Button (Mobile / Desktop) -->
+        <button id="install-btn" class="hidden px-3.5 py-1.5 rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1.5 shadow-md shadow-emerald-600/20">
+          <span>📲</span> <span>Установить</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-6xl w-full mx-auto px-4 py-6">
+
+    <!-- TAB 1: SEARCH VIEW -->
+    <div id="view-search" class="space-y-6">
+      
+      <!-- Search Input Box -->
+      <div class="glass rounded-2xl p-4 sm:p-6 shadow-xl relative overflow-hidden">
+        <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-sky-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <form id="search-form" onsubmit="handleSearch(event)" class="space-y-3">
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+            Поиск товаров по Финляндии и сравнение цен с доставкой:
+          </label>
+          <div class="flex flex-col sm:flex-row gap-2.5">
+            <div class="relative flex-1">
+              <input 
+                type="text" 
+                id="search-input" 
+                placeholder="Например: протеин, rhtfnby, кофемашина, moccamaster..." 
+                autocomplete="off"
+                class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition text-base"
+              >
+              <button 
+                type="button" 
+                id="clear-btn" 
+                onclick="clearSearch()" 
+                class="hidden absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-lg p-1"
+              >✕</button>
+            </div>
+            <button 
+              type="submit" 
+              id="submit-btn" 
+              class="bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-400 hover:to-sky-500 text-white font-semibold px-7 py-3.5 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-sky-500/20 active:scale-95"
+            >
+              <span id="btn-icon">🔍</span>
+              <span id="btn-text">Найти</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- Quick Search Tags -->
+        <div class="mt-4 flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-800/80">
+          <span class="text-xs text-slate-400 mr-1">Быстрый выбор:</span>
+          <button onclick="quickSearch('протеин')" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-300 transition">🥛 Протеин</button>
+          <button onclick="quickSearch('соевый протеин')" class="text-xs px-2.5 py-1 rounded-lg bg-emerald-950/60 border border-emerald-800/50 hover:bg-emerald-900/60 text-emerald-300 transition">🌱 Соевый протеин</button>
+          <button onclick="quickSearch('креатин')" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-300 transition">⚡ Креатин</button>
+          <button onclick="quickSearch('кофемашина')" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-300 transition">☕ Кофемашины</button>
+          <button onclick="quickSearch('мокамастер')" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-300 transition">☕ Moccamaster</button>
+          <button onclick="quickSearch('айфон 15')" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-300 transition">📱 iPhone 15</button>
+          <button onclick="quickSearch('rhtfnby')" class="text-xs px-2.5 py-1 rounded-lg bg-purple-950/60 border border-purple-800/50 hover:bg-purple-900/60 text-purple-300 transition">⌨️ «rhtfnby»</button>
+        </div>
+      </div>
+
+      <!-- Translation Hint Banner -->
+      <div id="hint-banner" class="hidden glass rounded-xl px-4 py-3 border-l-4 border-amber-400 flex items-center justify-between text-sm">
+        <div class="flex items-center gap-2">
+          <span class="text-amber-400 text-lg">💡</span>
+          <span id="hint-text" class="text-slate-200"></span>
+        </div>
+      </div>
+
+      <!-- Filter and Sort Bar -->
+      <div id="filter-bar" class="hidden flex flex-wrap items-center justify-between gap-3 glass rounded-xl px-4 py-2.5">
+        <div class="flex items-center gap-1.5 flex-wrap" id="store-filters">
+          <span class="text-xs text-slate-400 font-medium mr-1">Магазин:</span>
+          <button onclick="setStoreFilter('all')" data-store="all" class="store-filter-btn px-2.5 py-1 rounded-md text-xs font-semibold bg-sky-600 text-white transition">Все</button>
+          <button onclick="setStoreFilter('Tokmanni')" data-store="Tokmanni" class="store-filter-btn px-2.5 py-1 rounded-md text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Tokmanni</button>
+          <button onclick="setStoreFilter('Kärkkäinen')" data-store="Kärkkäinen" class="store-filter-btn px-2.5 py-1 rounded-md text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Kärkkäinen</button>
+          <button onclick="setStoreFilter('Fitnesstukku')" data-store="Fitnesstukku" class="store-filter-btn px-2.5 py-1 rounded-md text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Fitnesstukku</button>
+          <button onclick="setStoreFilter('Hinta.fi')" data-store="Hinta.fi" class="store-filter-btn px-2.5 py-1 rounded-md text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Hinta.fi</button>
+        </div>
+
+        <div class="flex items-center gap-2 text-xs text-slate-300">
+          <span class="text-slate-400">Сортировка:</span>
+          <select id="sort-select" onchange="renderProducts()" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500">
+            <option value="price_asc">Цена с доставкой (сначала дешевле)</option>
+            <option value="base_price_asc">Цена товара (без доставки)</option>
+            <option value="title_asc">По названию (А-Я)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- External Quick Store Buttons (Prisma & Tokmanni) -->
+      <div id="external-links-bar" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <a id="btn-prisma-ext" href="#" target="_blank" class="glass rounded-xl p-3 flex items-center justify-between hover:border-emerald-500/50 transition group">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">🛒</span>
+            <div>
+              <p class="text-xs text-slate-400">Проверить наличие в супермаркете</p>
+              <p class="text-sm font-bold text-emerald-400 group-hover:text-emerald-300">Каталог Prisma (S-Kaupat)</p>
+            </div>
+          </div>
+          <span class="text-slate-500 group-hover:text-emerald-400 transition text-sm">Перейти ↗</span>
+        </a>
+
+        <a id="btn-tokmanni-ext" href="#" target="_blank" class="glass rounded-xl p-3 flex items-center justify-between hover:border-red-500/50 transition group">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">🏪</span>
+            <div>
+              <p class="text-xs text-slate-400">Проверить поиск на сайте</p>
+              <p class="text-sm font-bold text-red-400 group-hover:text-red-300">Каталог Tokmanni.fi</p>
+            </div>
+          </div>
+          <span class="text-slate-500 group-hover:text-red-400 transition text-sm">Перейти ↗</span>
+        </a>
+      </div>
+
+      <!-- Loading State -->
+      <div id="loading-state" class="hidden py-16 flex flex-col items-center justify-center space-y-4">
+        <div class="w-12 h-12 border-4 border-sky-500/20 border-t-sky-500 rounded-full animate-spin"></div>
+        <p class="text-sm text-slate-400 animate-pulse">Опрашиваем Tokmanni, Kärkkäinen, Fitnesstukku и Hinta.fi...</p>
+      </div>
+
+      <!-- Results Grid -->
+      <div id="results-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Injected dynamically via JS -->
+      </div>
+
+      <!-- Empty State / Welcome Screen -->
+      <div id="empty-state" class="py-16 text-center space-y-3 glass rounded-2xl p-8 border border-dashed border-slate-800">
+        <div class="w-16 h-16 mx-auto bg-slate-900 rounded-2xl flex items-center justify-center text-3xl">🛍️</div>
+        <h3 class="text-base font-semibold text-slate-200">Готов к поиску лучших цен</h3>
+        <p class="text-xs text-slate-400 max-w-md mx-auto">
+          Введите название товара на русском, финском или английском, либо нажмите на одну из подсказок выше.
+        </p>
+      </div>
+
+    </div>
+
+    <!-- TAB 2: TRACKED ITEMS VIEW -->
+    <div id="view-tracked" class="hidden space-y-6">
+      <div class="flex items-center justify-between glass rounded-2xl p-4 sm:p-6">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <span>⭐</span> Отслеживаемые товары
+          </h2>
+          <p class="text-xs text-slate-400">Сохранённые товары с историей цен и ежедневной проверкой</p>
+        </div>
+        <button onclick="checkTrackedPrices()" id="btn-refresh-tracked" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded-xl transition flex items-center gap-1.5 shadow-md shadow-sky-600/20">
+          <span>🔄</span> Проверить цены
+        </button>
+      </div>
+
+      <div id="tracked-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Injected dynamically -->
+      </div>
+
+      <div id="tracked-empty" class="py-16 text-center space-y-3 glass rounded-2xl p-8 border border-dashed border-slate-800">
+        <div class="w-16 h-16 mx-auto bg-slate-900 rounded-2xl flex items-center justify-center text-3xl">⭐</div>
+        <h3 class="text-base font-semibold text-slate-200">Список отслеживания пуст</h3>
+        <p class="text-xs text-slate-400 max-w-md mx-auto">
+          Найдите нужный товар через поиск и нажмите «В избранное», чтобы бот следил за снижением цены!
+        </p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Toast Notification Container -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 glass border border-slate-700 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 text-sm transition-all duration-300 transform translate-y-20 opacity-0 pointer-events-none">
+    <span id="toast-icon">✅</span>
+    <span id="toast-text"></span>
+  </div>
+
+  <script>
+    let currentProducts = [];
+    let currentStoreFilter = 'all';
+    let deferredPrompt = null;
+
+    // PWA Service Worker Registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('SW Registered:', reg.scope))
+          .catch(err => console.log('SW Registration failed:', err));
+      });
+    }
+
+    // Capture PWA install prompt
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const installBtn = document.getElementById('install-btn');
+      installBtn.classList.remove('hidden');
+      installBtn.addEventListener('click', async () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          if (outcome === 'accepted') {
+            installBtn.classList.add('hidden');
+          }
+          deferredPrompt = null;
+        }
+      });
+    });
+
+    // Tab Switching
+    function switchTab(tab) {
+      const viewSearch = document.getElementById('view-search');
+      const viewTracked = document.getElementById('view-tracked');
+      const btnSearch = document.getElementById('tab-btn-search');
+      const btnTracked = document.getElementById('tab-btn-tracked');
+
+      if (tab === 'search') {
+        viewSearch.classList.remove('hidden');
+        viewTracked.classList.add('hidden');
+        btnSearch.className = 'px-3.5 py-1.5 rounded-lg text-sm font-medium transition bg-sky-600 text-white flex items-center gap-1.5';
+        btnTracked.className = 'px-3.5 py-1.5 rounded-lg text-sm font-medium transition text-slate-300 hover:bg-slate-800 flex items-center gap-1.5 relative';
+      } else {
+        viewSearch.classList.add('hidden');
+        viewTracked.classList.remove('hidden');
+        btnTracked.className = 'px-3.5 py-1.5 rounded-lg text-sm font-medium transition bg-sky-600 text-white flex items-center gap-1.5 relative';
+        btnSearch.className = 'px-3.5 py-1.5 rounded-lg text-sm font-medium transition text-slate-300 hover:bg-slate-800 flex items-center gap-1.5';
+        loadTrackedProducts();
+      }
+    }
+
+    function quickSearch(term) {
+      document.getElementById('search-input').value = term;
+      document.getElementById('clear-btn').classList.remove('hidden');
+      handleSearch();
+    }
+
+    function clearSearch() {
+      document.getElementById('search-input').value = '';
+      document.getElementById('clear-btn').classList.add('hidden');
+      document.getElementById('search-input').focus();
+    }
+
+    document.getElementById('search-input').addEventListener('input', (e) => {
+      const clearBtn = document.getElementById('clear-btn');
+      if (e.target.value.length > 0) {
+        clearBtn.classList.remove('hidden');
+      } else {
+        clearBtn.classList.add('hidden');
+      }
+    });
+
+    // Search Execution
+    async function handleSearch(e) {
+      if (e) e.preventDefault();
+      const input = document.getElementById('search-input');
+      const query = input.value.trim();
+      if (!query || query.length < 2) return;
+
+      const loading = document.getElementById('loading-state');
+      const resultsGrid = document.getElementById('results-grid');
+      const emptyState = document.getElementById('empty-state');
+      const hintBanner = document.getElementById('hint-banner');
+      const filterBar = document.getElementById('filter-bar');
+      const externalLinksBar = document.getElementById('external-links-bar');
+
+      emptyState.classList.add('hidden');
+      resultsGrid.innerHTML = '';
+      loading.classList.remove('hidden');
+      hintBanner.classList.add('hidden');
+      filterBar.classList.add('hidden');
+      externalLinksBar.classList.add('hidden');
+
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+        const data = await res.json();
+        loading.classList.add('hidden');
+
+        if (data.error) {
+          showToast('❌ ' + data.error);
+          emptyState.classList.remove('hidden');
+          return;
+        }
+
+        currentProducts = data.products || [];
+
+        // Show Hint if translated or fixed layout
+        if (data.hint) {
+          document.getElementById('hint-text').innerHTML = data.hint;
+          hintBanner.classList.remove('hidden');
+        }
+
+        // Show External links
+        if (data.external_links) {
+          document.getElementById('btn-prisma-ext').href = data.external_links.prisma_url;
+          document.getElementById('btn-tokmanni-ext').href = data.external_links.tokmanni_url;
+          externalLinksBar.classList.remove('hidden');
+        }
+
+        if (currentProducts.length === 0) {
+          resultsGrid.innerHTML = `
+            <div class="col-span-full py-12 text-center glass rounded-2xl p-6">
+              <p class="text-3xl mb-2">😔</p>
+              <h4 class="font-bold text-slate-200">По запросу «${data.parsed_query}» ничего не найдено</h4>
+              <p class="text-xs text-slate-400 mt-1">Попробуйте более короткий запрос или используйте кнопки перехода в Prisma и Tokmanni выше.</p>
+            </div>
+          `;
+          return;
+        }
+
+        filterBar.classList.remove('hidden');
+        renderProducts();
+
+      } catch (err) {
+        loading.classList.add('hidden');
+        emptyState.classList.remove('hidden');
+        showToast('⚠️ Ошибка соединения с сервером');
+        console.error(err);
+      }
+    }
+
+    function setStoreFilter(store) {
+      currentStoreFilter = store;
+      document.querySelectorAll('.store-filter-btn').forEach(btn => {
+        if (btn.dataset.store === store) {
+          btn.className = 'store-filter-btn px-2.5 py-1 rounded-md text-xs font-semibold bg-sky-600 text-white transition';
+        } else {
+          btn.className = 'store-filter-btn px-2.5 py-1 rounded-md text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition';
+        }
+      });
+      renderProducts();
+    }
+
+    function renderProducts() {
+      const resultsGrid = document.getElementById('results-grid');
+      const sortVal = document.getElementById('sort-select').value;
+
+      let filtered = [...currentProducts];
+      if (currentStoreFilter !== 'all') {
+        filtered = filtered.filter(p => p.store_name.toLowerCase().includes(currentStoreFilter.toLowerCase()));
+      }
+
+      // Sorting
+      if (sortVal === 'price_asc') {
+        filtered.sort((a, b) => (a.total_price || 9999) - (b.total_price || 9999));
+      } else if (sortVal === 'base_price_asc') {
+        filtered.sort((a, b) => (a.base_price || 9999) - (b.base_price || 9999));
+      } else if (sortVal === 'title_asc') {
+        filtered.sort((a, b) => a.title.localeCompare(b.title));
+      }
+
+      if (filtered.length === 0) {
+        resultsGrid.innerHTML = `
+          <div class="col-span-full py-10 text-center glass rounded-2xl">
+            <p class="text-slate-400 text-sm">В выбранном магазине (${currentStoreFilter}) предложений не найдено.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const minPrice = Math.min(...filtered.map(p => p.total_price).filter(p => p > 0));
+
+      resultsGrid.innerHTML = filtered.map((prod, idx) => {
+        const isBestDeal = prod.total_price > 0 && prod.total_price === minPrice;
+        const storeBadgeClass = getStoreBadgeClass(prod.store_name);
+        const delivText = prod.delivery_fee > 0 ? `+${prod.delivery_fee.toFixed(2)} € доставка` : 'Бесплатная доставка';
+        const imgHtml = prod.image_url 
+          ? `<img src="${prod.image_url}" alt="${escapeHtml(prod.title)}" class="w-full h-44 object-contain p-2 bg-slate-900/50 rounded-xl" onerror="this.onerror=null; this.src='/static/icon-192.png';">`
+          : `<div class="w-full h-44 bg-slate-900/50 rounded-xl flex items-center justify-center text-3xl">📦</div>`;
+
+        return `
+          <div class="glass rounded-2xl p-4 flex flex-col justify-between transition hover:border-sky-500/40 relative group ${isBestDeal ? 'ring-1 ring-amber-400/50' : ''}">
+            
+            ${isBestDeal ? `
+              <div class="absolute -top-2.5 left-4 z-10 badge-best text-slate-950 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                <span>🔥</span> <span>Лучшая цена</span>
+              </div>
+            ` : ''}
+
+            <div>
+              <div class="relative overflow-hidden rounded-xl mb-3">
+                ${imgHtml}
+                <div class="absolute top-2 right-2">
+                  <span class="text-[11px] font-bold px-2 py-0.5 rounded-lg border ${storeBadgeClass}">
+                    ${escapeHtml(prod.store_name)}
+                  </span>
+                </div>
+              </div>
+
+              <h4 class="font-medium text-sm text-slate-100 line-clamp-2 leading-snug mb-2" title="${escapeHtml(prod.title)}">
+                ${escapeHtml(prod.title)}
+              </h4>
+            </div>
+
+            <div class="pt-3 border-t border-slate-800/80 mt-2">
+              <div class="flex items-baseline justify-between mb-3">
+                <div>
+                  <span class="text-xl font-extrabold text-white">${prod.total_price.toFixed(2)} €</span>
+                  <span class="text-[11px] text-slate-400 ml-1">итог</span>
+                </div>
+                <div class="text-right">
+                  <span class="text-xs text-slate-300 font-medium">${prod.base_price.toFixed(2)} €</span>
+                  <p class="text-[10px] text-slate-400">${delivText}</p>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-5 gap-2">
+                <a 
+                  href="${prod.url}" 
+                  target="_blank" 
+                  class="col-span-4 bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 active:scale-95 text-center"
+                >
+                  <span>🛒</span> <span>В магазин</span>
+                </a>
+                <button 
+                  onclick="addToTracked(${idx})" 
+                  title="Отслеживать цену" 
+                  class="col-span-1 glass hover:bg-slate-800 text-amber-400 py-2.5 rounded-xl transition flex items-center justify-center active:scale-95"
+                >
+                  <span>⭐</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        `;
+      }).join('');
+    }
+
+    function getStoreBadgeClass(store) {
+      const s = (store || '').toLowerCase();
+      if (s.includes('tokmanni')) return 'bg-red-950/80 text-red-300 border-red-800/60';
+      if (s.includes('kärkkäinen') || s.includes('karkkainen')) return 'bg-blue-950/80 text-blue-300 border-blue-800/60';
+      if (s.includes('fitnesstukku')) return 'bg-amber-950/80 text-amber-300 border-amber-800/60';
+      return 'bg-purple-950/80 text-purple-300 border-purple-800/60';
+    }
+
+    // Tracking Management
+    async function addToTracked(idx) {
+      const p = currentProducts[idx];
+      if (!p) return;
+
+      try {
+        const res = await fetch('/api/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            product_name: p.title,
+            product_url: p.url,
+            best_price: p.total_price,
+            base_price: p.base_price,
+            delivery_fee: p.delivery_fee,
+            store_name: p.store_name,
+            store_link: p.url
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('⭐ Товар добавлен в список отслеживания!');
+          updateTrackedBadge();
+        } else {
+          showToast('❌ Ошибка сохранения');
+        }
+      } catch (err) {
+        showToast('⚠️ Ошибка соединения');
+      }
+    }
+
+    async function loadTrackedProducts() {
+      const grid = document.getElementById('tracked-grid');
+      const empty = document.getElementById('tracked-empty');
+      grid.innerHTML = '<div class="col-span-full py-12 text-center text-slate-400 text-sm">Загрузка сохраненных товаров...</div>';
+
+      try {
+        const res = await fetch('/api/tracked');
+        const data = await res.json();
+        const items = data.tracked || [];
+
+        if (items.length === 0) {
+          grid.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+
+        empty.classList.add('hidden');
+        grid.innerHTML = items.map(item => `
+          <div class="glass rounded-2xl p-4 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[11px] font-bold px-2 py-0.5 rounded-lg border ${getStoreBadgeClass(item.store_name)}">
+                  ${escapeHtml(item.store_name)}
+                </span>
+                <span class="text-[10px] text-slate-400">
+                  ${item.last_checked ? new Date(item.last_checked).toLocaleDateString() : ''}
+                </span>
+              </div>
+              <h4 class="font-medium text-sm text-slate-100 line-clamp-2 leading-snug mb-3">
+                ${escapeHtml(item.product_name)}
+              </h4>
+            </div>
+
+            <div class="pt-3 border-t border-slate-800/80">
+              <div class="flex items-baseline justify-between mb-3">
+                <div>
+                  <span class="text-xl font-extrabold text-white">${item.best_price.toFixed(2)} €</span>
+                  <span class="text-[11px] text-slate-400 ml-1">итог</span>
+                </div>
+                <span class="text-xs text-slate-400">+${(item.delivery_fee || 0).toFixed(2)} € дост.</span>
+              </div>
+
+              <div class="grid grid-cols-5 gap-2">
+                <a href="${item.store_link}" target="_blank" class="col-span-4 bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs py-2 px-3 rounded-xl transition text-center flex items-center justify-center gap-1">
+                  <span>🛒</span> В магазин
+                </a>
+                <button onclick="deleteTracked(${item.id})" class="col-span-1 glass hover:bg-red-950/60 text-red-400 py-2 rounded-xl transition flex items-center justify-center" title="Удалить">
+                  <span>❌</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+
+      } catch (err) {
+        grid.innerHTML = '<div class="col-span-full py-10 text-center text-red-400 text-sm">Ошибка загрузки</div>';
+      }
+    }
+
+    async function deleteTracked(id) {
+      try {
+        const res = await fetch(`/api/track/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Товар удален из отслеживаемых');
+          loadTrackedProducts();
+          updateTrackedBadge();
+        }
+      } catch (err) {
+        showToast('⚠️ Ошибка удаления');
+      }
+    }
+
+    async function checkTrackedPrices() {
+      const btn = document.getElementById('btn-refresh-tracked');
+      btn.innerHTML = '<span>⏳</span> Проверяем...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/check_tracked', { method: 'POST' });
+        const data = await res.json();
+        btn.innerHTML = '<span>🔄</span> Проверить цены';
+        btn.disabled = false;
+
+        if (data.success) {
+          const dropped = (data.updated || []).filter(u => u.price_dropped).length;
+          if (dropped > 0) {
+            showToast(`🎉 Найдено ${dropped} снижений цен!`);
+          } else {
+            showToast('✅ Все цены актуальны, снижений нет');
+          }
+          loadTrackedProducts();
+        }
+      } catch (err) {
+        btn.innerHTML = '<span>🔄</span> Проверить цены';
+        btn.disabled = false;
+        showToast('⚠️ Ошибка при проверке цен');
+      }
+    }
+
+    async function updateTrackedBadge() {
+      try {
+        const res = await fetch('/api/tracked');
+        const data = await res.json();
+        const count = (data.tracked || []).length;
+        const badge = document.getElementById('tracked-badge');
+        if (count > 0) {
+          badge.textContent = count;
+          badge.classList.remove('hidden');
+          badge.classList.add('flex');
+        } else {
+          badge.classList.add('hidden');
+          badge.classList.remove('flex');
+        }
+      } catch (e) {}
+    }
+
+    function showToast(text) {
+      const toast = document.getElementById('toast');
+      const toastText = document.getElementById('toast-text');
+      toastText.textContent = text;
+      toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+      }, 3500);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Initial load
+    updateTrackedBadge();
+  </script>
+</body>
+</html>

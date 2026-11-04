@@ -1,0 +1,24 @@
+{
+  "name": "Price Tracker Finland",
+  "short_name": "PriceTracker",
+  "description": "Поиск и отслеживание лучших цен в магазинах Финляндии (Tokmanni, Kärkkäinen, Fitnesstukku, Hinta.fi, Prisma)",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0ea5e9",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
